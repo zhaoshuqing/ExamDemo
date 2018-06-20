@@ -19,10 +19,10 @@ public class Schedule {
 	private static final HashMap<Integer, List<NodeInfo>> nodeList = new HashMap<Integer, List<NodeInfo>>();
 
 	// 挂起队列
-	private static final HashMap<Integer, NodeInfo> hangUpTaskList = new HashMap<Integer, NodeInfo>();
+	private static final HashMap<Integer, NodeInfo> hangUpTaskMap = new HashMap<Integer, NodeInfo>();
 
 	// 任务节点数据
-	private static final HashMap<Integer, NodeInfo> taskInfoList = new HashMap<Integer, NodeInfo>();
+	private static final HashMap<Integer, NodeInfo> taskInfoMap = new HashMap<Integer, NodeInfo>();
 
 	// 任务信息列表
 	private static final List<TaskInfo> myTasks = new ArrayList<TaskInfo>();
@@ -31,8 +31,8 @@ public class Schedule {
 
 	public int init() {
 		nodeList.clear();
-		hangUpTaskList.clear();
-		taskInfoList.clear();
+		hangUpTaskMap.clear();
+		taskInfoMap.clear();
 		myTasks.clear();
 		return ReturnCodeKeys.E001;
 	}
@@ -62,7 +62,7 @@ public class Schedule {
 		List<NodeInfo> supTasks = nodeList.get(nodeId);
 		if (supTasks != null && supTasks.size() > 0) {
 			for (NodeInfo n : supTasks) {
-				hangUpTaskList.put(n.getTaskId(), n);
+				hangUpTaskMap.put(n.getTaskId(), n);
 			}
 		}
 
@@ -75,12 +75,12 @@ public class Schedule {
 		if (taskId <= 0) {
 			return ReturnCodeKeys.E009;
 		}
-		if (hangUpTaskList.containsKey(taskId)) {
+		if (hangUpTaskMap.containsKey(taskId)) {
 			return ReturnCodeKeys.E010;
 		}
 		NodeInfo addtaskNode = new NodeInfo(taskId, consumption);
-		hangUpTaskList.put(taskId, addtaskNode);
-		taskInfoList.put(taskId, addtaskNode);
+		hangUpTaskMap.put(taskId, addtaskNode);
+		taskInfoMap.put(taskId, addtaskNode);
 		return ReturnCodeKeys.E008;
 
 	}
@@ -89,21 +89,21 @@ public class Schedule {
 		if (taskId <= 0) {
 			return ReturnCodeKeys.E009;
 		}
-		if (!taskInfoList.containsKey(taskId)) {
+		if (!taskInfoMap.containsKey(taskId)) {
 			return ReturnCodeKeys.E012;
 		}
 		// 删除挂起队列的任务
-		if (hangUpTaskList.containsKey(taskId)) {
-			hangUpTaskList.remove(taskId);
+		if (hangUpTaskMap.containsKey(taskId)) {
+			hangUpTaskMap.remove(taskId);
 			return ReturnCodeKeys.E011;
 		}
 
-		NodeInfo taskNode = taskInfoList.get(taskId);
+		NodeInfo taskNode = taskInfoMap.get(taskId);
 		List<NodeInfo> tempTaskList = nodeList.get(taskNode.getTaskId());
 		if (tempTaskList != null && tempTaskList.size() > 0) {
 			tempTaskList.remove(taskId);
 		}
-		taskInfoList.remove(taskId);
+		taskInfoMap.remove(taskId);
 		return ReturnCodeKeys.E011;
 
 	}
@@ -148,25 +148,25 @@ public class Schedule {
 		if (threshold <= 0)
 			return ReturnCodeKeys.E002;
 		// 没有服务节点和挂起任务，返回成功
-		if (hangUpTaskList.isEmpty() && nodeList.isEmpty())
+		if (hangUpTaskMap.isEmpty() && nodeList.isEmpty())
 			return ReturnCodeKeys.E013;
 		this.threshold = threshold;
 		boolean balanced = false;
 
 		// 如果挂起任务中有任务
-		if (!hangUpTaskList.isEmpty()) {
+		if (!hangUpTaskMap.isEmpty()) {
 
 		}
-		while (!balanced || hangUpTaskList.size() > 0) {
-			for (Integer taskId : hangUpTaskList.keySet()) {
+		while (!balanced || hangUpTaskMap.size() > 0) {
+			for (Integer taskId : hangUpTaskMap.keySet()) {
 				int minNode = findMinServerNode();
-				NodeInfo tempTask = hangUpTaskList.get(taskId);
+				NodeInfo tempTask = hangUpTaskMap.get(taskId);
 				List<NodeInfo> minTaskList = nodeList.get(minNode);
 				if (minTaskList == null) {
 					minTaskList = new ArrayList<NodeInfo>();
 				}
 				minTaskList.add(new NodeInfo(tempTask.getTaskId(), tempTask.getConsumption()));
-				hangUpTaskList.remove(taskId);
+				hangUpTaskMap.remove(taskId);
 			}
 		}
 
@@ -174,34 +174,43 @@ public class Schedule {
 	}
 
 	public int queryTaskStatus(List<TaskInfo> tasks) {
-		if (tasks == null || tasks.size() < 1) {
+		if (tasks == null || tasks.size() < 1)
+		{
 			return ReturnCodeKeys.E006;
 		}
-
-		for (Integer taskId : hangUpTaskList.keySet()) {
-			TaskInfo t = new TaskInfo();
-			t.setTaskId(taskId);
-			t.setNodeId(-1);
-			tasks.add(t);
-		}
-		for (TaskInfo temp : tasks) {
-			TaskInfo t = new TaskInfo();
-			t.setTaskId(temp.getTaskId());
-			t.setNodeId(temp.getNodeId());
-			tasks.add(temp);
-		}
-
-		Collections.sort(tasks, new Comparator<TaskInfo>() {
-			public int compare(TaskInfo b1, TaskInfo b2) {
-				if (b1.getTaskId() > (b2.getTaskId())) {
-					return 1;
-				} else if (b1.getTaskId() < (b2.getTaskId())) {
-					return -1;
+			
+		List<TaskInfo> tempList = new ArrayList<TaskInfo>();
+		for (TaskInfo task : tasks) {
+			
+			if(taskInfoMap.containsKey(task.getTaskId()))
+			{
+				if(hangUpTaskMap.containsKey(task.getTaskId()))
+				{
+					task.setNodeId(-1);
+					
 				}
-				return 0;
+				tempList.add(task);
+				continue;
 			}
+		}
+		
+		tasks.clear();
+		tasks.addAll(tempList);
+		
+		Collections.sort(tasks,new Comparator<TaskInfo>(){
+            public int compare(TaskInfo b1, TaskInfo b2) {
+                 if(b1.getTaskId()>(b2.getTaskId()))
+                 {
+                     return 1;
+                 }
+                 else if(b1.getTaskId()<(b2.getTaskId()))
+                {
+                    return -1;
+                }
+                return 0;
+            }
 
-		});
+        });
 		return ReturnCodeKeys.E015;
 	}
 }
